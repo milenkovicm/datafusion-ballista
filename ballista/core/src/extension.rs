@@ -394,6 +394,9 @@ impl SessionConfigHelperExt for SessionConfig {
                 "datafusion.execution.parquet.schema_force_view_types",
                 false,
             )
+            // TODO for some reason we have to set it here
+            //      it does not populate from config
+            .set_bool("datafusion.optimizer.prefer_hash_join", false)
             // same like previous comment
             .set_bool("datafusion.sql_parser.map_string_types_to_utf8view", false)
     }
