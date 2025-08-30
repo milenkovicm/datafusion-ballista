@@ -23,7 +23,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use datafusion::config::ConfigOptions;
 use datafusion::physical_optimizer::aggregate_statistics::AggregateStatistics;
-use datafusion::physical_optimizer::join_selection::JoinSelection;
+//use datafusion::physical_optimizer::join_selection::JoinSelection;
 use datafusion::physical_optimizer::PhysicalOptimizerRule;
 use datafusion::physical_plan::display::DisplayableExecutionPlan;
 use datafusion::physical_plan::metrics::{MetricValue, MetricsSet};
@@ -365,7 +365,8 @@ impl UnresolvedStage {
         //
         // TODO: with datafusion 50 we can add rule to switch between HashJoin and SortMergeJoin
         //
-        let optimize_join = JoinSelection::new();
+        let optimize_join =
+            crate::physical_optimizer::join_selection::JoinSelection::new();
         let plan = optimize_join.optimize(plan, options)?;
 
         let optimize_aggregate = AggregateStatistics::new();
