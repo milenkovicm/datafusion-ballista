@@ -116,6 +116,8 @@ struct ShuffleWriteMetrics {
     repart_time: metrics::Time,
     input_rows: metrics::Count,
     output_rows: metrics::Count,
+    output_bytes: metrics::Count,
+    output_batches: metrics::Count,
 }
 
 impl ShuffleWriteMetrics {
@@ -125,14 +127,18 @@ impl ShuffleWriteMetrics {
             MetricBuilder::new(metrics).subset_time("repart_time", partition);
 
         let input_rows = MetricBuilder::new(metrics).counter("input_rows", partition);
-
+        let output_batches =
+            MetricBuilder::new(metrics).counter("output_batches", partition);
         let output_rows = MetricBuilder::new(metrics).output_rows(partition);
+        let output_bytes = MetricBuilder::new(metrics).counter("output_bytes", partition);
 
         Self {
             write_time,
             repart_time,
             input_rows,
             output_rows,
+            output_bytes,
+            output_batches,
         }
     }
 }
@@ -232,6 +238,15 @@ impl ShuffleWriterExec {
                     write_metrics
                         .output_rows
                         .add(stats.num_rows.unwrap_or(0) as usize);
+
+                    write_metrics
+                        .output_bytes
+                        .add(stats.num_bytes.unwrap_or(0) as usize);
+
+                    write_metrics
+                        .output_batches
+                        .add(stats.num_batches.unwrap_or(0) as usize);
+
                     timer.done();
 
                     info!(

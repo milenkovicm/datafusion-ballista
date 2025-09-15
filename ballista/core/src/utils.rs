@@ -26,6 +26,7 @@ use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::execution::context::{SessionConfig, SessionState};
 use datafusion::execution::runtime_env::RuntimeEnvBuilder;
 use datafusion::execution::session_state::SessionStateBuilder;
+use datafusion::parquet::file::reader::Length;
 use datafusion::physical_plan::metrics::MetricsSet;
 use datafusion::physical_plan::{metrics, ExecutionPlan, RecordBatchStream};
 use futures::StreamExt;
@@ -64,7 +65,6 @@ pub async fn write_stream_to_disk(
 
     let mut num_rows = 0;
     let mut num_batches = 0;
-    let mut num_bytes = 0;
 
     let options = IpcWriteOptions::default()
         .try_with_compression(Some(CompressionType::LZ4_FRAME))?;
@@ -75,10 +75,8 @@ pub async fn write_stream_to_disk(
     while let Some(result) = stream.next().await {
         let batch = result?;
 
-        let batch_size_bytes: usize = batch.get_array_memory_size();
         num_batches += 1;
         num_rows += batch.num_rows();
-        num_bytes += batch_size_bytes;
 
         let timer = disk_write_metric.timer();
         writer.write(&batch)?;
@@ -90,7 +88,7 @@ pub async fn write_stream_to_disk(
     Ok(PartitionStats::new(
         Some(num_rows as u64),
         Some(num_batches),
-        Some(num_bytes as u64),
+        Some(writer.get_ref().len()),
     ))
 }
 
