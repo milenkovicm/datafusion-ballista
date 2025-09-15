@@ -38,7 +38,9 @@ use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::common::runtime::SpawnedTask;
 
 use datafusion::error::{DataFusionError, Result};
-use datafusion::physical_plan::metrics::{ExecutionPlanMetricsSet, MetricsSet};
+use datafusion::physical_plan::metrics::{
+    ExecutionPlanMetricsSet, MetricBuilder, MetricsSet,
+};
 use datafusion::physical_plan::{
     ColumnStatistics, DisplayAs, DisplayFormatType, ExecutionPlan, Partitioning,
     PlanProperties, RecordBatchStream, SendableRecordBatchStream, Statistics,
@@ -189,6 +191,11 @@ impl ExecutionPlan for ShuffleReaderExec {
             .collect();
         // Shuffle partitions for evenly send fetching partition requests to avoid hot executors within multiple tasks
         partition_locations.shuffle(&mut rng());
+
+        let output_rows = MetricBuilder::new(&self.metrics).output_rows(partition);
+        let output_batches =
+            MetricBuilder::new(&self.metrics).counter("output_batches", partition);
+
         let response_receiver = send_fetch_partitions(
             partition_locations,
             max_request_num,
@@ -199,8 +206,12 @@ impl ExecutionPlan for ShuffleReaderExec {
 
         let result = RecordBatchStreamAdapter::new(
             Arc::new(self.schema.as_ref().clone()),
-            response_receiver.try_flatten(),
+            response_receiver.try_flatten().inspect(move |b| {
+                output_rows.add(b.as_ref().map(|b| b.num_rows()).unwrap_or(0));
+                output_batches.add(b.as_ref().map(|_| 1).unwrap_or(0));
+            }),
         );
+
         Ok(Box::pin(result))
     }
 
