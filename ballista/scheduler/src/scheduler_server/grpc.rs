@@ -369,7 +369,7 @@ impl<T: 'static + AsLogicalPlan, U: 'static + AsExecutionPlan> SchedulerGrpc
                 Query::LogicalPlan(message) => {
                     match T::try_decode(message.as_slice()).and_then(|m| {
                         m.try_into_logical_plan(
-                            session_ctx.deref(),
+                            &session_ctx.deref().task_ctx(),
                             self.state.codec.logical_extension_codec(),
                         )
                     }) {

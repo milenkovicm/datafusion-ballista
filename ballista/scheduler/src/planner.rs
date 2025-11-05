@@ -813,12 +813,9 @@ order by
                 plan.clone(),
                 codec.physical_extension_codec(),
             )?;
-        let runtime = ctx.runtime_env();
-        let result_exec_plan: Arc<dyn ExecutionPlan> = (proto).try_into_physical_plan(
-            ctx,
-            runtime.deref(),
-            codec.physical_extension_codec(),
-        )?;
+
+        let result_exec_plan: Arc<dyn ExecutionPlan> = (proto)
+            .try_into_physical_plan(&ctx.task_ctx(), codec.physical_extension_codec())?;
         Ok(result_exec_plan)
     }
 }

@@ -177,11 +177,24 @@ impl TryInto<protobuf::OperatorMetric> for &MetricValue {
                         .unwrap_or(0),
                 )),
             }),
-            // at the moment there there is no way to serialize custom metrics
-            // thus at the moment we can't support it
             MetricValue::Custom { .. } => Err(BallistaError::General(String::from(
                 "Custom metrics values are not supported",
             ))),
+            MetricValue::OutputBytes(count) => Ok(protobuf::OperatorMetric {
+                metric: Some(operator_metric::Metric::Ignored(0)),
+            }),
+            MetricValue::PruningMetrics {
+                name,
+                pruning_metrics,
+            } => Ok(protobuf::OperatorMetric {
+                metric: Some(operator_metric::Metric::Ignored(0)),
+            }),
+            MetricValue::Ratio {
+                name,
+                ratio_metrics,
+            } => Ok(protobuf::OperatorMetric {
+                metric: Some(operator_metric::Metric::Ignored(0)),
+            }),
         }
     }
 }

@@ -201,6 +201,11 @@ impl TryInto<MetricValue> for protobuf::OperatorMetric {
                 timestamp.set(Utc.timestamp_nanos(value));
                 Ok(MetricValue::EndTimestamp(timestamp))
             }
+            Some(operator_metric::Metric::Ignored(v)) => {
+                let count = Count::new();
+                count.add(v as usize);
+                Ok(MetricValue::SpilledRows(count))
+            }
             None => Err(BallistaError::General(
                 "scheduler::from_proto(OperatorMetric) metric is None.".to_owned(),
             )),
@@ -314,16 +319,12 @@ pub fn get_task_definition<T: 'static + AsLogicalPlan, U: 'static + AsExecutionP
         .with_config(session_config.clone())
         .with_runtime_env(runtime.clone())
         .build();
-    let ctx = SessionContext::new_with_state(session_state);
+    let ctx = SessionContext::new_with_state(session_state).task_ctx();
     //
 
     let encoded_plan = task.plan.as_slice();
     let plan: Arc<dyn ExecutionPlan> = U::try_decode(encoded_plan).and_then(|proto| {
-        proto.try_into_physical_plan(
-            &ctx,
-            runtime.as_ref(),
-            codec.physical_extension_codec(),
-        )
+        proto.try_into_physical_plan(&ctx, codec.physical_extension_codec())
     })?;
 
     let job_id = task.job_id;
@@ -382,16 +383,12 @@ pub fn get_task_definition_vec<
         .with_config(session_config.clone())
         .with_runtime_env(runtime.clone())
         .build();
-    let ctx = SessionContext::new_with_state(session_state);
+    let ctx = SessionContext::new_with_state(session_state).task_ctx();
     //
 
     let encoded_plan = multi_task.plan.as_slice();
     let plan: Arc<dyn ExecutionPlan> = U::try_decode(encoded_plan).and_then(|proto| {
-        proto.try_into_physical_plan(
-            &ctx,
-            runtime.as_ref(),
-            codec.physical_extension_codec(),
-        )
+        proto.try_into_physical_plan(&ctx, codec.physical_extension_codec())
     })?;
 
     let job_id = multi_task.job_id;
