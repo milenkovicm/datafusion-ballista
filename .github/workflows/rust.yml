@@ -76,7 +76,7 @@ jobs:
           export PATH=$PATH:$HOME/d/protoc/bin
           export ARROW_TEST_DATA=$(pwd)/testing/data
           export PARQUET_TEST_DATA=$(pwd)/parquet-testing/data
-          cargo test --profile ci --features=testcontainers
+          cargo clean && cargo test --profile ci --features=testcontainers
         env:
           CARGO_HOME: "/github/home/.cargo"
           CARGO_TARGET_DIR: "/github/home/target"
@@ -138,7 +138,7 @@ jobs:
           export PARQUET_TEST_DATA=$(pwd)/parquet-testing/data
           cd ballista
           # Ensure also compiles in standalone mode
-          cargo test --profile ci --no-default-features --features standalone --locked
+          cargo clean && cargo test --profile ci --no-default-features --features standalone --locked
         env:
           CARGO_HOME: "/github/home/.cargo"
           CARGO_TARGET_DIR: "/github/home/target"
@@ -221,8 +221,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [amd64]
-        rust: [stable]
+        arch: [ amd64 ]
+        rust: [ stable ]
     container:
       image: ${{ matrix.arch }}/rust
       env:
@@ -252,8 +252,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [amd64]
-        rust: [stable]
+        arch: [ amd64 ]
+        rust: [ stable ]
     container:
       image: ${{ matrix.arch }}/rust
       env:
