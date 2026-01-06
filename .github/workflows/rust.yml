@@ -62,27 +62,13 @@ jobs:
   linux-test:
     name: test linux crates
     runs-on: ubuntu-latest
+    container:
+      image: amd64/rust
     steps:
       - uses: actions/checkout@v5
         with:
           submodules: true
           fetch-depth: 1
-      - name: Check disk space before
-        run: df -h
-      - name: Free up disk space
-        run: |
-          # remove pre-installed stuff to get some more disk space
-          # see https://github.com/actions/runner-images/issues/2840
-          sudo rm -rf /usr/share/miniconda
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/lib/llvm-*
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          sudo docker system prune -af
-      - name: Check disk space after cleanup
-        run: df -h
       - name: Setup Rust toolchain
         uses: ./.github/actions/setup-builder
       - name: Run tests
@@ -91,6 +77,9 @@ jobs:
           export ARROW_TEST_DATA=$(pwd)/testing/data
           export PARQUET_TEST_DATA=$(pwd)/parquet-testing/data
           cargo test --profile ci --features=testcontainers
+        env:
+          CARGO_HOME: "/github/home/.cargo"
+          CARGO_TARGET_DIR: "/github/home/target"
 
   # Run `cargo doc` to ensure the rustdoc is clean
   linux-rustdoc:
@@ -133,27 +122,13 @@ jobs:
   ballista-test:
     name: test linux balista
     runs-on: ubuntu-latest
+    container:
+      image: amd64/rust
     steps:
       - uses: actions/checkout@v5
         with:
           submodules: true
           fetch-depth: 1
-      - name: Check disk space before
-        run: df -h
-      - name: Free up disk space
-        run: |
-          # remove pre-installed stuff to get some more disk space
-          # see https://github.com/actions/runner-images/issues/2840
-          sudo rm -rf /usr/share/miniconda
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/lib/llvm-*
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          sudo docker system prune -af
-      - name: Check disk space after cleanup
-        run: df -h
       - name: Setup Rust toolchain
         uses: ./.github/actions/setup-builder
       - name: Run Ballista tests
@@ -164,6 +139,9 @@ jobs:
           cd ballista
           # Ensure also compiles in standalone mode
           cargo test --profile ci --no-default-features --features standalone --locked
+        env:
+          CARGO_HOME: "/github/home/.cargo"
+          CARGO_TARGET_DIR: "/github/home/target"
 
   windows-test:
     name: windows test
