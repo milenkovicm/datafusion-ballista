@@ -155,6 +155,9 @@ pub trait SessionConfigExt {
         prefer_flight: bool,
     ) -> Self;
 
+    /// Is adaptive query planner enabled
+    fn ballista_adaptive_query_planner(&self) -> bool;
+
     /// Set user defined metadata keys in Ballista gRPC requests
     fn with_ballista_grpc_metadata(self, metadata: HashMap<String, String>) -> Self;
 
@@ -422,6 +425,14 @@ impl SessionConfigExt for SessionConfig {
             self.with_option_extension(BallistaConfig::default())
                 .set_bool(BALLISTA_SHUFFLE_READER_REMOTE_PREFER_FLIGHT, prefer_flight)
         }
+    }
+
+    fn ballista_adaptive_query_planner(&self) -> bool {
+        self.options()
+            .extensions
+            .get::<BallistaConfig>()
+            .map(|c| c.adaptive_query_planner())
+            .unwrap_or_else(|| BallistaConfig::default().adaptive_query_planner())
     }
 
     fn with_ballista_grpc_metadata(self, metadata: HashMap<String, String>) -> Self {
