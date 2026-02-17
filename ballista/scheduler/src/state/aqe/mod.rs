@@ -21,7 +21,7 @@ use crate::scheduler_server::timestamp_millis;
 use crate::state::aqe::planner::AdaptivePlanner;
 use crate::state::execution_graph::{
     ExecutionGraph, ExecutionGraphBox, ExecutionStage, ResolvedStage, RunningTaskInfo,
-    StageOutput,
+    StageOutput, partition_to_location,
 };
 use crate::state::execution_stage::RunningStage;
 use crate::state::task_manager::UpdatedStages;
@@ -124,7 +124,7 @@ impl AdaptiveExecutionGraph {
         let stages: ballista_core::error::Result<HashMap<usize, ExecutionStage>> =
             runnable
                 .into_iter()
-                .map(|s| Self::convert_to_running_stage(session_config.clone(), s.plan))
+                .map(|s| Self::create_resolved_stage(session_config.clone(), s.plan))
                 .collect();
         let stages = stages?;
 
@@ -157,7 +157,7 @@ impl AdaptiveExecutionGraph {
 }
 
 impl AdaptiveExecutionGraph {
-    fn convert_to_running_stage(
+    fn create_resolved_stage(
         session_config: Arc<SessionConfig>,
         stage: Arc<ShuffleWriterExec>,
     ) -> ballista_core::error::Result<(usize, ExecutionStage)> {
@@ -256,7 +256,8 @@ impl AdaptiveExecutionGraph {
         stage_id: usize,
         is_completed: bool,
         locations: Vec<PartitionLocation>,
-    ) -> ballista_core::error::Result<HashSet<usize>> {
+    ) -> ballista_core::error::Result<(HashSet<usize>, HashSet<usize>)> {
+        let mut resolved_stages = HashSet::new();
         self.planner
             .update_exchange_locations(stage_id, locations)?;
 
@@ -270,14 +271,14 @@ impl AdaptiveExecutionGraph {
                     runnable
                         .into_iter()
                         .map(|s| {
-                            Self::convert_to_running_stage(
+                            Self::create_resolved_stage(
                                 self.session_config.clone(),
                                 s.plan,
                             )
                         })
                         .collect();
                 let stages = stages?;
-                // resolved_stages.extend(stages.keys());
+                resolved_stages.extend(stages.keys());
 
                 self.stages.extend(stages);
             } else {
@@ -291,9 +292,9 @@ impl AdaptiveExecutionGraph {
                 self.planner.cancel_stage(*stage_id)?;
             }
 
-            Ok(stages_to_cancel)
+            Ok((resolved_stages, stages_to_cancel))
         } else {
-            Ok(HashSet::new())
+            Ok((resolved_stages, HashSet::new()))
         }
     }
 
@@ -545,7 +546,6 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
         max_stage_failures: usize,
     ) -> ballista_core::error::Result<Vec<QueryStageSchedulerEvent>> {
         let job_id = self.job_id().to_owned();
-
         // First of all, classify the statuses by stages
         let mut job_task_statuses: HashMap<usize, Vec<TaskStatus>> = HashMap::new();
         for task_status in task_statuses {
@@ -558,8 +558,8 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
         // It will be refined later
         self.revive();
 
-        // let current_running_stages: HashSet<usize> =
-        //     HashSet::from_iter(self.running_stages());
+        let current_running_stages: HashSet<usize> =
+            HashSet::from_iter(self.running_stages());
 
         // Copy the failed stage attempts from self
         let mut failed_stage_attempts: HashMap<usize, HashSet<usize>> = HashMap::new();
@@ -568,23 +568,16 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
                 .insert(*stage_id, HashSet::from_iter(attempts.iter().copied()));
         }
 
+        let mut resolved_stages = HashSet::new();
         let mut successful_stages = HashSet::new();
         let mut failed_stages = HashMap::new();
         let mut rollback_running_stages = HashMap::new();
         let mut resubmit_successful_stages: HashMap<usize, HashSet<usize>> =
             HashMap::new();
-        let reset_running_stages: HashMap<usize, HashSet<usize>> = HashMap::new();
-
-        //
-        //
-        //
+        let mut reset_running_stages: HashMap<usize, HashSet<usize>> = HashMap::new();
 
         for (stage_id, stage_task_statuses) in job_task_statuses {
             if let Some(stage) = self.stages.get_mut(&stage_id) {
-                //
-                //
-                //
-
                 if let ExecutionStage::Running(running_stage) = stage {
                     let mut locations = vec![];
                     for task_status in stage_task_statuses.into_iter() {
@@ -617,9 +610,7 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
                         {
                             continue;
                         }
-                        //
-                        // handle task failure
-                        //
+
                         if let Some(task_status::Status::Failed(failed_task)) =
                             task_status.status
                         {
@@ -627,7 +618,7 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
 
                             match failed_reason {
                                 Some(FailedReason::FetchPartitionError(
-                                    fetch_partition_error,
+                                    fetch_partiton_error,
                                 )) => {
                                     let failed_attempts = failed_stage_attempts
                                         .entry(stage_id)
@@ -635,12 +626,12 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
                                     failed_attempts.insert(task_stage_attempt_num);
                                     if failed_attempts.len() < max_stage_failures {
                                         let map_stage_id =
-                                            fetch_partition_error.map_stage_id as usize;
-                                        let map_partition_id = fetch_partition_error
+                                            fetch_partiton_error.map_stage_id as usize;
+                                        let map_partition_id = fetch_partiton_error
                                             .map_partition_id
                                             as usize;
                                         let executor_id =
-                                            fetch_partition_error.executor_id;
+                                            fetch_partiton_error.executor_id;
 
                                         if !failed_stages.is_empty() {
                                             let error_msg = format!(
@@ -725,11 +716,7 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
                                     failed_stages.insert(stage_id, error_msg);
                                 }
                             }
-                        }
-                        //
-                        // handle successful task
-                        //
-                        else if let Some(task_status::Status::Successful(
+                        } else if let Some(task_status::Status::Successful(
                             successful_task,
                         )) = task_status.status
                         {
@@ -737,15 +724,13 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
                             running_stage
                                 .update_task_metrics(partition_id, operator_metrics)?;
 
-                            locations.append(
-                                &mut crate::state::execution_graph::partition_to_location(
-                                    &job_id,
-                                    partition_id,
-                                    stage_id,
-                                    executor,
-                                    successful_task.partitions,
-                                ),
-                            );
+                            locations.append(&mut partition_to_location(
+                                &job_id,
+                                partition_id,
+                                stage_id,
+                                executor,
+                                successful_task.partitions,
+                            ));
                         } else {
                             warn!(
                                 "The task {task_identity}'s status is invalid for updating"
@@ -753,17 +738,11 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
                         }
                     }
 
-                    //
-                    // all task updates have been handled
-                    //
-
                     let is_final_successful = running_stage.is_successful()
                         && !reset_running_stages.contains_key(&stage_id);
-
                     if is_final_successful {
                         successful_stages.insert(stage_id);
-                        // if this stage is final successful, we want to combine
-                        // the stage metrics to plan's metric set and print out the plan
+                        // if this stage is final successful, we want to combine the stage metrics to plan's metric set and print out the plan
                         if let Some(stage_metrics) = running_stage.stage_metrics.as_ref()
                         {
                             print_stage_metrics(
@@ -774,11 +753,14 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
                             );
                         }
                     }
-                    let stages_to_cancel = self.update_stage_progress(
-                        stage_id,
-                        is_final_successful,
-                        locations,
-                    )?;
+
+                    //let output_links = running_stage.output_links.clone();
+                    let (_resolved_stages, stages_to_cancel) = self
+                        .update_stage_progress(
+                            stage_id,
+                            is_final_successful,
+                            locations,
+                        )?;
 
                     if !stages_to_cancel.is_empty() {
                         warn!(
@@ -786,14 +768,100 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
                             stages_to_cancel
                         );
                     }
+
+                    //resolved_stages.extend(_resolved_stages.into_iter());
+                } else if let ExecutionStage::UnResolved(unsolved_stage) = stage {
+                    for task_status in stage_task_statuses.into_iter() {
+                        let task_stage_attempt_num =
+                            task_status.stage_attempt_num as usize;
+                        let partition_id = task_status.clone().partition_id as usize;
+                        let task_identity = format!(
+                            "TID {} {}/{}.{}/{}",
+                            task_status.task_id,
+                            job_id,
+                            stage_id,
+                            task_stage_attempt_num,
+                            partition_id
+                        );
+                        let mut should_ignore = true;
+                        // handle delayed failed tasks if the stage's next attempt is still in UnResolved status.
+                        if let Some(task_status::Status::Failed(failed_task)) =
+                            task_status.status
+                            && unsolved_stage.stage_attempt_num - task_stage_attempt_num
+                                == 1
+                        {
+                            let failed_reason = failed_task.failed_reason;
+                            match failed_reason {
+                                Some(FailedReason::ExecutionError(_)) => {
+                                    should_ignore = false;
+                                    failed_stages.insert(stage_id, failed_task.error);
+                                }
+                                Some(FailedReason::FetchPartitionError(
+                                    fetch_partiton_error,
+                                )) if failed_stages.is_empty()
+                                    && current_running_stages.contains(
+                                        &(fetch_partiton_error.map_stage_id as usize),
+                                    )
+                                    && !unsolved_stage
+                                        .last_attempt_failure_reasons
+                                        .contains(&fetch_partiton_error.executor_id) =>
+                                {
+                                    should_ignore = false;
+                                    unsolved_stage
+                                        .last_attempt_failure_reasons
+                                        .insert(fetch_partiton_error.executor_id.clone());
+                                    let map_stage_id =
+                                        fetch_partiton_error.map_stage_id as usize;
+                                    let map_partition_id =
+                                        fetch_partiton_error.map_partition_id as usize;
+                                    let executor_id = fetch_partiton_error.executor_id;
+                                    let removed_map_partitions = unsolved_stage
+                                        .remove_input_partitions(
+                                            map_stage_id,
+                                            map_partition_id,
+                                            &executor_id,
+                                        )?;
+
+                                    let missing_inputs = reset_running_stages
+                                        .entry(map_stage_id)
+                                        .or_default();
+                                    missing_inputs.extend(removed_map_partitions);
+                                    warn!(
+                                        "Need to reset the current running Stage {map_stage_id} due to late come FetchPartitionError from its parent stage {stage_id} of task {task_identity}"
+                                    );
+
+                                    // If the previous other task updates had already mark the map stage success, need to remove it.
+                                    if successful_stages.contains(&map_stage_id) {
+                                        successful_stages.remove(&map_stage_id);
+                                    }
+                                    if resolved_stages.contains(&stage_id) {
+                                        resolved_stages.remove(&stage_id);
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        if should_ignore {
+                            warn!(
+                                "Ignore TaskStatus update of task with TID {task_identity} as the Stage {job_id}/{stage_id} is in UnResolved status"
+                            );
+                        }
+                    }
                 } else {
+                    warn!("==>{:?}", stage);
                     warn!(
                         "Stage {}/{} is not in running when updating the status of tasks {:?}",
                         job_id,
                         stage_id,
                         stage_task_statuses
                             .into_iter()
-                            .map(|task_status| task_status.partition_id)
+                            .map(|task_status| format!(
+                                "{}|{}|{}|{}",
+                                task_status.job_id,
+                                task_status.stage_id,
+                                task_status.task_id,
+                                task_status.partition_id
+                            ))
                             .collect::<Vec<_>>(),
                     );
                 }
@@ -866,7 +934,7 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
         }
 
         self.processing_stages_update(UpdatedStages {
-            resolved_stages: Default::default(),
+            resolved_stages,
             successful_stages,
             failed_stages,
             rollback_running_stages,
@@ -876,7 +944,6 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
                 .collect(),
         })
     }
-
     /// Return all the currently running stage ids
     fn running_stages(&self) -> Vec<usize> {
         self.stages
@@ -1010,6 +1077,8 @@ impl ExecutionGraph for AdaptiveExecutionGraph {
             );
             Ok(false)
         }
+
+        //Ok(true)
     }
 
     /// Convert running stage to be successful

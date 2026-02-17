@@ -80,9 +80,11 @@ impl DistributedExchangeRule {
                 self.plan_id_generator
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             );
-            Ok(Transformed::yes(
-                execution_plan.with_new_children(vec![Arc::new(exchange_exec)])?,
-            ))
+            let child: Arc<dyn ExecutionPlan> = Arc::new(exchange_exec);
+            let new_exec: Arc<dyn ExecutionPlan> =
+                execution_plan.with_new_children(vec![child])?;
+
+            Ok(Transformed::yes(new_exec))
         } else if let Some(repartition) =
             execution_plan.as_any().downcast_ref::<RepartitionExec>()
         {

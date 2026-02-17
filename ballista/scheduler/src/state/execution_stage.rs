@@ -645,7 +645,14 @@ impl RunningStage {
 
     /// Update the TaskInfo for task partition
     pub fn update_task_info(&mut self, partition_id: usize, status: TaskStatus) -> bool {
-        debug!("Updating TaskInfo for partition {partition_id}");
+        debug!(
+            "Updating TaskInfo for partition {partition_id}, {}|{}|{}",
+            status.job_id, status.stage_id, status.task_id
+        );
+        if self.task_infos[partition_id].as_ref().is_none() {
+            return false;
+        }
+
         let task_info = self.task_infos[partition_id].as_ref().unwrap();
         let task_id = task_info.task_id;
         if (status.task_id as usize) < task_id {

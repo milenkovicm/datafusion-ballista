@@ -124,7 +124,7 @@ static CONFIG_ENTRIES: LazyLock<HashMap<String, ConfigEntry>> = LazyLock::new(||
         ConfigEntry::new(BALLISTA_ADAPTIVE_PLANNER_ENABLED.to_string(),
                          "Enables Adaptive Query Planning (EXPERIMENTAL)".to_string(),
                          DataType::Boolean,
-                         Some(false.to_string())),
+                         Some(true.to_string())),
         ConfigEntry::new(BALLISTA_ADAPTIVE_PLANNER_MAX_PASSES.to_string(),
                          "Number of times that the adaptive optimizer will attempt to optimize the plan".to_string(),
                          DataType::UInt64,

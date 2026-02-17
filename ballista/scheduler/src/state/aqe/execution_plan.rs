@@ -111,14 +111,16 @@ impl ExchangeExec {
         stage_id: Arc<AtomicI64>,
         stage_partitions: Arc<Mutex<Option<Vec<Vec<PartitionLocation>>>>>,
     ) -> Self {
-        let schema = input.schema();
+        //let schema = input.schema();
         let plan_partitioning = match partitioning.as_ref() {
             Some(partitioning) => partitioning.clone(),
             None => input.output_partitioning().clone(),
         };
 
+        let ep = input.equivalence_properties().clone();
         let properties = PlanProperties::new(
-            datafusion::physical_expr::EquivalenceProperties::new(schema.clone()),
+            //datafusion::physical_expr::EquivalenceProperties::new_with_orderings(schema, orderings),
+            ep,
             plan_partitioning,
             datafusion::physical_plan::execution_plan::EmissionType::Incremental,
             datafusion::physical_plan::execution_plan::Boundedness::Bounded,
@@ -290,6 +292,10 @@ impl ExecutionPlan for ExchangeExec {
         ))
     }
 
+    fn maintains_input_order(&self) -> Vec<bool> {
+        vec![true; self.children().len()]
+    }
+
     fn partition_statistics(&self, partition: Option<usize>) -> Result<Statistics> {
         let schema = self.input.schema();
         match self.shuffle_partitions.lock().deref() {
@@ -443,6 +449,10 @@ impl ExecutionPlan for AdaptiveDatafusionExec {
 
     fn children(&self) -> Vec<&Arc<dyn ExecutionPlan>> {
         vec![&self.input]
+    }
+
+    fn maintains_input_order(&self) -> Vec<bool> {
+        vec![true; self.children().len()]
     }
 
     fn with_new_children(
