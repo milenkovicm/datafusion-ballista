@@ -340,7 +340,7 @@ async fn should_split_stages_resolve_both() -> datafusion::error::Result<()> {
 
     ctx.register_table("t", mock_memory_table())?;
 
-    //let q = "select sum(c0) as s0, sum(c1) as s2 from (select min(a) c0, max(b) c1, c c2 from t group by c) group by c2";
+    // let q = "select sum(c0) as s0, sum(c1) as s2 from (select min(a) c0, max(b) c1, c c2 from t group by c) group by c2";
 
     let q = r#"
         select sum(t0.c0)

@@ -44,7 +44,20 @@ impl DistributedExchangeRule {
         &self,
         execution_plan: Arc<dyn ExecutionPlan>,
     ) -> datafusion::error::Result<Transformed<Arc<dyn ExecutionPlan>>> {
-        if let Some(coalesce) = execution_plan
+        if let Some(exchange) = execution_plan.as_any().downcast_ref::<ExchangeExec>()
+            && !exchange.shuffle_created()
+            && exchange
+                .properties()
+                .output_partitioning()
+                .partition_count()
+                == 1
+            && exchange.partitioning.is_some()
+        // this should affect only repartitioning exchanges
+        {
+            // The exchange hasn't run yet and its input produces exactly one
+            // partition, so distributing over it is a no-op – eliminate it.
+            Ok(Transformed::yes(exchange.input().clone()))
+        } else if let Some(coalesce) = execution_plan
             .as_any()
             .downcast_ref::<CoalescePartitionsExec>()
             && coalesce

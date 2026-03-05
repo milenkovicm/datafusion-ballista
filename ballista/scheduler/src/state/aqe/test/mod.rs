@@ -50,9 +50,35 @@ pub(crate) fn mock_partitions_with_statistics() -> Vec<Vec<PartitionLocation>> {
         },
         path: "".to_string(),
         // next few properties are needed
-        partition_stats: PartitionStats::new(Some(42), None, Some(10)),
+        partition_stats: PartitionStats::new(Some(42_000_000), None, Some(100_000_000)),
     };
-    vec![vec![location]]
+    vec![vec![location.clone()], vec![location]]
+}
+
+pub(crate) fn mock_partitions_with_statistics_provided(
+    rows: u64,
+    bytes: u64,
+) -> Vec<Vec<PartitionLocation>> {
+    let location = PartitionLocation {
+        // next few properties are generic values
+        map_partition_id: 0,
+        partition_id: PartitionId {
+            job_id: "".to_string(),
+            stage_id: 0,
+            partition_id: 0,
+        },
+        executor_meta: ExecutorMetadata {
+            id: "".to_string(),
+            host: "".to_string(),
+            port: 0,
+            grpc_port: 0,
+            specification: ExecutorSpecification { task_slots: 0 },
+        },
+        path: "".to_string(),
+        // next few properties are needed
+        partition_stats: PartitionStats::new(Some(rows), None, Some(bytes)),
+    };
+    vec![vec![location.clone()], vec![location]]
 }
 
 pub(crate) fn mock_partitions_with_statistics_no_data() -> Vec<Vec<PartitionLocation>> {

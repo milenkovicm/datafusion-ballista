@@ -17,8 +17,8 @@
 use crate::state::aqe::adapter::BallistaAdapter;
 use crate::state::aqe::execution_plan::{AdaptiveDatafusionExec, ExchangeExec};
 use crate::state::aqe::optimizer_rule::{
-    DistributedExchangeRule, EliminateCooperativeExecRule, EliminateEmptyExchangeRule,
-    PropagateEmptyExecRule, WarnOnDuplicateExecRule,
+    CoalesceExchangeRule, DistributedExchangeRule, EliminateCooperativeExecRule,
+    EliminateEmptyExchangeRule, PropagateEmptyExecRule, WarnOnDuplicateExecRule,
 };
 
 use crate::state::execution_stage::StageOutput;
@@ -440,6 +440,7 @@ impl AdaptivePlanner {
             // TODO: do we keep it here or make it last
             Arc::new(DistributedExchangeRule::default()),
             Arc::new(EliminateEmptyExchangeRule::default()),
+            Arc::new(CoalesceExchangeRule::default()),
         ];
 
         let default_optimizers = PhysicalOptimizer::new();

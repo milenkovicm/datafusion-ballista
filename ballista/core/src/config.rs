@@ -65,6 +65,14 @@ pub const BALLISTA_ADAPTIVE_PLANNER_ENABLED: &str = "ballista.planner.adaptive.e
 /// Number of times that the optimizer will attempt to optimize the plan
 pub const BALLISTA_ADAPTIVE_PLANNER_MAX_PASSES: &str =
     "ballista.planner.adaptive.planner_pass";
+/// Number of rows threshold at which exchange will be coalesced to
+/// single partition
+pub const BALLISTA_ADAPTIVE_PLANNER_COALESCE_EXCHANGE_ROWS: &str =
+    "ballista.planner.adaptive.coalesce_exchange_threshold_rows";
+/// Number of bytes threshold at which exchange will be coalesced to
+/// single partition
+pub const BALLISTA_ADAPTIVE_PLANNER_COALESCE_EXCHANGE_BYTES: &str =
+    "ballista.planner.adaptive.coalesce_exchange_threshold_bytes";
 /// Configuration key for enabling sort-based shuffle.
 pub const BALLISTA_SHUFFLE_SORT_BASED_ENABLED: &str =
     "ballista.shuffle.sort_based.enabled";
@@ -134,7 +142,15 @@ static CONFIG_ENTRIES: LazyLock<HashMap<String, ConfigEntry>> = LazyLock::new(||
         ConfigEntry::new(BALLISTA_ADAPTIVE_PLANNER_ENABLED.to_string(),
                          "Enables Adaptive Query Planning (EXPERIMENTAL)".to_string(),
                          DataType::Boolean,
-                         Some(false.to_string())),
+                         Some(true.to_string())),
+        ConfigEntry::new(BALLISTA_ADAPTIVE_PLANNER_COALESCE_EXCHANGE_ROWS.to_string(),
+                         "Number of rows threshold at which exchange will be coalesced to single partition".to_string(),
+                         DataType::UInt64,
+                         Some(131072.to_string())),
+        ConfigEntry::new(BALLISTA_ADAPTIVE_PLANNER_COALESCE_EXCHANGE_BYTES.to_string(),
+                         "Number of bytes threshold at which exchange will be coalesced to single partition".to_string(),
+                         DataType::UInt64,
+                         Some(1048576.to_string())),
         ConfigEntry::new(BALLISTA_ADAPTIVE_PLANNER_MAX_PASSES.to_string(),
                          "Number of times that the adaptive optimizer will attempt to optimize the plan".to_string(),
                          DataType::UInt64,
@@ -340,6 +356,16 @@ impl BallistaConfig {
         self.get_usize_setting(BALLISTA_ADAPTIVE_PLANNER_MAX_PASSES)
     }
 
+    /// Number of rows threshold at which exchange will be coalesced to
+    /// single partition
+    pub fn adaptive_query_coalesce_exchange_rows(&self) -> usize {
+        self.get_usize_setting(BALLISTA_ADAPTIVE_PLANNER_COALESCE_EXCHANGE_ROWS)
+    }
+    /// Number of bytes threshold at which exchange will be coalesced to
+    /// single partition
+    pub fn adaptive_query_coalesce_exchange_bytes(&self) -> usize {
+        self.get_usize_setting(BALLISTA_ADAPTIVE_PLANNER_COALESCE_EXCHANGE_BYTES)
+    }
     /// Returns whether sort-based shuffle is enabled.
     ///
     /// When enabled, shuffle writes produce a single consolidated file per input
