@@ -192,10 +192,6 @@ impl ExecutionPlan for UnresolvedShuffleExec {
         "UnresolvedShuffleExec"
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -230,6 +226,16 @@ impl ExecutionPlan for UnresolvedShuffleExec {
         Err(DataFusionError::Plan(
             "Ballista UnresolvedShuffleExec does not support execution".to_owned(),
         ))
+    }
+
+    fn apply_expressions(
+        &self,
+        f: &mut dyn FnMut(
+            &dyn datafusion::physical_plan::PhysicalExpr,
+        )
+            -> Result<datafusion::common::tree_node::TreeNodeRecursion>,
+    ) -> Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        todo!()
     }
 }
 

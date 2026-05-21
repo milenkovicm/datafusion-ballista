@@ -310,10 +310,6 @@ impl ExecutionPlan for ShuffleReaderExec {
         "ShuffleReaderExec"
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -425,7 +421,7 @@ impl ExecutionPlan for ShuffleReaderExec {
         Some(self.metrics.clone_inner())
     }
 
-    fn partition_statistics(&self, partition: Option<usize>) -> Result<Statistics> {
+    fn partition_statistics(&self, partition: Option<usize>) -> Result<Arc<Statistics>> {
         if self.broadcast {
             if let Some(idx) = partition
                 && idx != 0
@@ -444,7 +440,7 @@ impl ExecutionPlan for ShuffleReaderExec {
                 "broadcast shuffle reader at stage {} returned aggregated statistics: {:?}",
                 self.stage_id, stats
             );
-            return Ok(stats);
+            return Ok(Arc::new(stats));
         }
         if let Some(idx) = partition {
             let partition_count = self.properties().partitioning.partition_count();
@@ -473,7 +469,7 @@ impl ExecutionPlan for ShuffleReaderExec {
                 "shuffle reader at stage: {} and partition {} returned statistics: {:?}",
                 self.stage_id, idx, stat_for_partition
             );
-            stat_for_partition
+            stat_for_partition.map(Arc::new)
         } else {
             let stats_for_partitions = stats_for_partitions(
                 self.schema.fields().len(),
@@ -486,8 +482,18 @@ impl ExecutionPlan for ShuffleReaderExec {
                 "shuffle reader at stage: {} returned statistics for all partitions: {:?}",
                 self.stage_id, stats_for_partitions
             );
-            Ok(stats_for_partitions)
+            Ok(Arc::new(stats_for_partitions))
         }
+    }
+
+    fn apply_expressions(
+        &self,
+        f: &mut dyn FnMut(
+            &dyn datafusion::physical_plan::PhysicalExpr,
+        )
+            -> Result<datafusion::common::tree_node::TreeNodeRecursion>,
+    ) -> Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        todo!()
     }
 }
 /// Calculates stats for partition

@@ -538,10 +538,6 @@ impl ExecutionPlan for SortShuffleWriterExec {
         "SortShuffleWriterExec"
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.plan.schema()
     }
@@ -662,8 +658,18 @@ impl ExecutionPlan for SortShuffleWriterExec {
         Some(self.metrics.clone_inner())
     }
 
-    fn partition_statistics(&self, partition: Option<usize>) -> Result<Statistics> {
+    fn partition_statistics(&self, partition: Option<usize>) -> Result<Arc<Statistics>> {
         self.plan.partition_statistics(partition)
+    }
+
+    fn apply_expressions(
+        &self,
+        f: &mut dyn FnMut(
+            &dyn PhysicalExpr,
+        )
+            -> Result<datafusion::common::tree_node::TreeNodeRecursion>,
+    ) -> Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        todo!()
     }
 }
 
@@ -1166,6 +1172,7 @@ mod tests {
             BatchPartitioner::new_hash_partitioner(exprs.clone(), 4, Time::default());
         let mut ref_assignments = [usize::MAX; 10];
         ref_partitioner
+            .unwrap()
             .partition(batch.clone(), |partition, sub_batch| {
                 // BatchPartitioner returns the rows for `partition` in the order
                 // they appear in the original batch. Recover the row indices via

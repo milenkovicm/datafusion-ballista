@@ -107,10 +107,6 @@ impl<T: 'static + AsLogicalPlan> ExecutionPlan for DistributedExplainAnalyzeExec
         "DistributedExplainAnalyzeExec"
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn properties(&self) -> &Arc<PlanProperties> {
         &self.properties
     }
@@ -132,7 +128,6 @@ impl<T: 'static + AsLogicalPlan> ExecutionPlan for DistributedExplainAnalyzeExec
 
         let query_exec = children.pop().unwrap();
         if query_exec
-            .as_any()
             .downcast_ref::<DistributedQueryExec<T>>()
             .is_some()
         {
@@ -172,7 +167,6 @@ impl<T: 'static + AsLogicalPlan> ExecutionPlan for DistributedExplainAnalyzeExec
             }
 
             let job_id = query_exec
-                .as_any()
                 .downcast_ref::<DistributedQueryExec<T>>()
                 .ok_or_else(|| {
                     DataFusionError::Internal(
@@ -199,6 +193,16 @@ impl<T: 'static + AsLogicalPlan> ExecutionPlan for DistributedExplainAnalyzeExec
 
     fn metrics(&self) -> Option<MetricsSet> {
         None
+    }
+
+    fn apply_expressions(
+        &self,
+        f: &mut dyn FnMut(
+            &dyn datafusion::physical_plan::PhysicalExpr,
+        )
+            -> Result<datafusion::common::tree_node::TreeNodeRecursion>,
+    ) -> Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        todo!()
     }
 }
 

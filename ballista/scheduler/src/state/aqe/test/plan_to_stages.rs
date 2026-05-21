@@ -451,9 +451,7 @@ async fn should_use_sort_shuffle_when_enabled() -> datafusion::error::Result<()>
 
     let plan = stages.first().unwrap().plan.as_ref();
     assert!(
-        plan.as_any()
-            .downcast_ref::<SortShuffleWriterExec>()
-            .is_some(),
+        plan.downcast_ref::<SortShuffleWriterExec>().is_some(),
         "expected SortShuffleWriterExec when sort shuffle is enabled, got plan: {plan:?}"
     );
 
@@ -478,9 +476,7 @@ async fn should_use_sort_shuffle_by_default() -> datafusion::error::Result<()> {
 
     let plan = stages.first().unwrap().plan.as_ref();
     assert!(
-        plan.as_any()
-            .downcast_ref::<SortShuffleWriterExec>()
-            .is_some(),
+        plan.downcast_ref::<SortShuffleWriterExec>().is_some(),
         "expected SortShuffleWriterExec by default, got plan: {plan:?}"
     );
 

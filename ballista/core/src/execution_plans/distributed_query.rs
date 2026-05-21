@@ -176,10 +176,6 @@ impl<T: 'static + AsLogicalPlan> ExecutionPlan for DistributedQueryExec<T> {
         "DistributedQueryExec"
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.plan.schema().as_arrow().clone().into()
     }
@@ -322,6 +318,16 @@ impl<T: 'static + AsLogicalPlan> ExecutionPlan for DistributedQueryExec<T> {
 
     fn metrics(&self) -> Option<MetricsSet> {
         Some(self.metrics.clone_inner())
+    }
+
+    fn apply_expressions(
+        &self,
+        f: &mut dyn FnMut(
+            &dyn datafusion::physical_plan::PhysicalExpr,
+        )
+            -> Result<datafusion::common::tree_node::TreeNodeRecursion>,
+    ) -> Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        todo!()
     }
 }
 
@@ -839,7 +845,6 @@ mod test {
 
         let new_exec = exec.clone().with_new_children(vec![]).unwrap();
         let new_exec = new_exec
-            .as_any()
             .downcast_ref::<DistributedQueryExec<LogicalPlanNode>>()
             .unwrap();
 

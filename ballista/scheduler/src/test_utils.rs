@@ -82,10 +82,6 @@ pub struct ExplodingTableProvider;
 
 #[async_trait]
 impl TableProvider for ExplodingTableProvider {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         Arc::new(Schema::empty())
     }

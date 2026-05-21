@@ -285,7 +285,8 @@ impl ShuffleWriterExec {
                             exprs,
                             num_output_partitions,
                             repart_time,
-                        );
+                        )
+                        .unwrap();
 
                         while let Some(input_batch) = rx.blocking_recv() {
                             partitioner.partition(
@@ -437,10 +438,6 @@ impl ExecutionPlan for ShuffleWriterExec {
         "ShuffleWriterExec"
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.plan.schema()
     }
@@ -560,8 +557,18 @@ impl ExecutionPlan for ShuffleWriterExec {
         Some(self.metrics.clone_inner())
     }
 
-    fn partition_statistics(&self, partition: Option<usize>) -> Result<Statistics> {
+    fn partition_statistics(&self, partition: Option<usize>) -> Result<Arc<Statistics>> {
         self.plan.partition_statistics(partition)
+    }
+
+    fn apply_expressions(
+        &self,
+        f: &mut dyn FnMut(
+            &dyn datafusion::physical_plan::PhysicalExpr,
+        )
+            -> Result<datafusion::common::tree_node::TreeNodeRecursion>,
+    ) -> Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        todo!()
     }
 }
 

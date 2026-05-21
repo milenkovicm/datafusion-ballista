@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use datafusion::common::DataFusionError;
+use datafusion::common::{DataFusionError, exec_err};
 use datafusion::execution::{FunctionRegistry, SessionState};
 use datafusion::functions::all_default_functions;
 use datafusion::functions_aggregate::all_default_aggregate_functions;
@@ -134,6 +134,19 @@ impl FunctionRegistry for BallistaFunctionRegistry {
                 "There is no UDWF named \"{name}\" in the TaskContext"
             ))
         })
+    }
+
+    fn higher_order_function_names(&self) -> HashSet<String> {
+        Default::default()
+    }
+
+    fn higher_order_function(
+        &self,
+        _name: &str,
+    ) -> datafusion::error::Result<Arc<dyn datafusion::logical_expr::HigherOrderUDF>>
+    {
+        // TODO needs follow up
+        exec_err!("no such function")
     }
 }
 

@@ -649,10 +649,6 @@ impl ExecutionPlan for MockPartitionedScan {
         "MockPartitionedScan"
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn properties(&self) -> &Arc<PlanProperties> {
         &self.plan_properties
     }
@@ -679,7 +675,18 @@ impl ExecutionPlan for MockPartitionedScan {
     fn partition_statistics(
         &self,
         _partition: Option<usize>,
-    ) -> datafusion::common::Result<Statistics> {
-        Ok(self.statistics.clone())
+    ) -> datafusion::common::Result<Arc<Statistics>> {
+        Ok(Arc::new(self.statistics.clone()))
+    }
+
+    fn apply_expressions(
+        &self,
+        f: &mut dyn FnMut(
+            &dyn PhysicalExpr,
+        ) -> datafusion::error::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::error::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        todo!()
     }
 }

@@ -21,6 +21,7 @@
 //! (`ShuffleWriterExec`) and sort-based shuffle (`SortShuffleWriterExec`).
 
 use datafusion::physical_plan::{ExecutionPlan, Partitioning};
+use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -28,7 +29,7 @@ use std::sync::Arc;
 ///
 /// This trait defines the common interface needed by the distributed planner
 /// and execution graph to work with different shuffle implementations.
-pub trait ShuffleWriter: ExecutionPlan + Debug + Send + Sync {
+pub trait ShuffleWriter: Any + ExecutionPlan + Debug + Send + Sync {
     /// Get the Job ID for this query stage.
     fn job_id(&self) -> &str;
 
@@ -46,4 +47,24 @@ pub trait ShuffleWriter: ExecutionPlan + Debug + Send + Sync {
 
     /// Clone this shuffle writer as an Arc'd trait object.
     fn clone_box(&self) -> Arc<dyn ShuffleWriter>;
+}
+
+impl dyn ShuffleWriter {
+    /// Returns `true` if the plan is of type `T`.
+    ///
+    /// Prefer this over `downcast_ref::<T>().is_some()`. Works correctly when
+    /// called on `Arc<dyn ExecutionPlan>` via auto-deref.
+    pub fn is<T: ExecutionPlan>(&self) -> bool {
+        (self as &dyn Any).is::<T>()
+    }
+
+    /// Attempts to downcast this plan to a concrete type `T`, returning `None`
+    /// if the plan is not of that type.
+    ///
+    /// Works correctly when called on `Arc<dyn ExecutionPlan>` via auto-deref,
+    /// unlike `(&arc as &dyn Any).downcast_ref::<T>()` which would attempt to
+    /// downcast the `Arc` itself.
+    pub fn downcast_ref<T: ExecutionPlan>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }

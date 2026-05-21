@@ -336,10 +336,6 @@ mod test {
             "NeverendingOperator"
         }
 
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
         fn schema(&self) -> SchemaRef {
             Arc::new(Schema::empty())
         }
@@ -365,6 +361,16 @@ mod test {
             _context: Arc<TaskContext>,
         ) -> datafusion::common::Result<SendableRecordBatchStream> {
             Ok(Box::pin(NeverendingRecordBatchStream))
+        }
+
+        fn apply_expressions(
+            &self,
+            f: &mut dyn FnMut(
+                &dyn datafusion::physical_plan::PhysicalExpr,
+            )
+                -> Result<datafusion::common::tree_node::TreeNodeRecursion>,
+        ) -> Result<datafusion::common::tree_node::TreeNodeRecursion> {
+            todo!()
         }
     }
 
