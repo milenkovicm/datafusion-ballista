@@ -32,7 +32,6 @@ from ._internal_ballista import (
 )
 from .extension import (
     BallistaSessionContext,
-    DistributedDataFrame,
     ExecutionPlanVisualization,
 )
 
@@ -48,6 +47,5 @@ __all__ = [
     "BallistaPhysicalExtensionCodec",
     "BallistaQueryPlanner",
     "BallistaSessionContext",
-    "DistributedDataFrame",
     "ExecutionPlanVisualization",
 ]
